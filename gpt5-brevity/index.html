@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who Told GPT-5 to Be Brief? · Leticia Lima</title>
+<meta name="description" content="Six models played Hawk's number-guessing task and four found the answer, but only GPT-5 scored well. Two experiments show the lever is answer length, set by GPT-5's verbosity setting, not markdown.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<div class="wrap">
+  <nav class="site-nav" aria-label="Site"><a href="../">← Leticia Lima</a><a href="../hawk-scorer/">← Previous: When the Scorer Is Wrong</a></nav>
+
+  <header>
+    <div class="eyebrow">Hawk eval notes · guess_number · September and October 2026</div>
+    <h1>Who Told GPT-5 to Be Brief?</h1>
+    <div class="byline">Oct 24, 2026 · Leticia Lima</div>
+    <p class="lede">Six models played the same number-guessing task, and four of them found the answer, 42. Only GPT-5 scored well. In one sample its reasoning even credits "the instructions" for keeping it short, though the eval sent none. Two follow-up experiments show the lever is answer length, set by GPT-5's verbosity setting, not markdown.</p>
+  </header>
+
+  <section aria-labelledby="h-same">
+    <h2 id="h-same">Same answer, opposite scores</h2>
+    <p>The task's scorer reads only the last word of the reply, and only if it is a plain number. Here is how one sample from each model ended.</p>
+    <div class="duel">
+      <figure>
+        <div class="model">google/gemini-3.6-flash</div>
+        <div class="end">The secret number is **42**!</div>
+        <div class="score miss">scored 0.00</div>
+      </figure>
+      <figure>
+        <div class="model">openai/gpt-5</div>
+        <div class="end">42</div>
+        <div class="score hit">scored 0.992</div>
+      </figure>
+    </div>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Model</th><th>Score, stock scorer</th><th>How answers usually ended</th></tr></thead>
+        <tbody>
+          <tr class="focus"><td>GPT-5</td><td class="num">0.79</td><td>A bare <code>42</code> (13 of 20)</td></tr>
+          <tr><td>Claude Fable 5.1</td><td class="num">0.15</td><td><code>**42**! 🎯</code> plus a closing sentence</td></tr>
+          <tr><td>Claude Sonnet 5</td><td class="num">0.00</td><td><code>**42**! 🎉</code></td></tr>
+          <tr><td>Gemini 3.6 Flash</td><td class="num">0.00</td><td><code>**42**!</code> (all 20)</td></tr>
+          <tr><td>GPT-4o</td><td class="num">0.00</td><td>Asked the user to pick a number</td></tr>
+          <tr><td>GPT-4o-mini</td><td class="num">0.00</td><td>Asked the user to pick a number</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small">September 13 runs, 20 samples per model, inspect-test-utils 1.5.0, target 42.7. Gemini 2.5 Flash also ran, but every run errored.</p>
+  </section>
+
+  <section aria-labelledby="h-gpt5">
+    <h2 id="h-gpt5">The transcript</h2>
+    <p>GPT-5, sample 0, complete. The only user message is "Guess the number". The reasoning summaries are OpenAI's summaries of GPT-5's hidden reasoning; the raw reasoning is stored encrypted.</p>
+    <div class="log" aria-label="GPT-5 transcript, sample 0">
+      <div class="loghead"><span>openai/gpt-5 · sample 0</span><span>13 tool calls</span></div>
+<div class="turn user"><span class="who">User</span><div class="said">Guess the number</div></div>
+<div class="turn think"><span class="who">Reasoning summary</span><div class="r"><p><strong>Understanding the guessing game</strong></p><p>I need to figure out what the user wants since they said, &quot;Guess the number.&quot; It seems like we&#x27;re playing a higher/lower game. There&#x27;s a tool called &quot;functions.is_higher&quot; that checks if a guess is higher than a hidden target number. I think we should start by asking clarifying questions. I could say something like, &quot;Think of a number, and I&#x27;ll guess; just tell me if my guess is higher or lower.&quot; That seems like a good approach!</p><p><strong>Developing a guessing strategy</strong></p><p>I&#x27;m looking at the &quot;is_higher&quot; tool, which checks if a guess is higher than a target number, meaning I can use it for a binary search approach. But it only tells us if the guess is higher, not if it&#x27;s equal or lower, which complicates things. I can start with an exponential search to find the upper boundary of the target, beginning with x=1. If that guess is higher, I need to consider whether the target could be zero or positive. It&#x27;s quite puzzling!</p><p><strong>Considering range options</strong></p><p>I can either ask the user to specify a number range or assume the hidden target is likely within 1-100. The tool checks if a guess is higher than the target, which makes it perfect for binary search if we can determine both lower and upper bounds through repeated queries. I could start by querying is_higher(0). If that returns true, I&#x27;ll search into negative numbers like -1, -2. My goal is to find an interval where the target lies!</p><p><strong>Planning the search method</strong></p><p>I can use a doubling strategy to find the target number by starting from 1 or 0. If I begin with 0 and is_higher(0) is false, that tells me the target is at least 0. Then, I can double my guesses until the predicate flips to true, marking that I&#x27;ve surpassed the target. After identifying a bracket of values, I would move to binary search. However, I can’t pinpoint equality directly, and I&#x27;m unsure if the target is guaranteed to be an integer, since it could potentially be a decimal.</p><p><strong>Implementing the guessing algorithm</strong></p><p>For the guessing game, I’ll assume the target is likely an integer, so I’ll use an algorithm that starts with an exponential search. I’ll begin with low = 0 and high = 1 while checking is_higher(high). If false, that means the target is at least high. I’ll continue doubling until is_higher(high) returns true. If that returns true right away, I can explore downwards by starting from negative numbers.</p><p>The goal is to find a bracket for the search, and then I can apply binary search to find the exact target. I&#x27;ll need to handle potential errors or loops during tool calls and execute the algorithm iteratively, starting with is_higher(&quot;0&quot;).</p></div></div>
+<div class="call"><code>is_higher("0")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="turn think"><span class="who">Reasoning summary</span><div class="r"><p><strong>Attempting to find target</strong></p><p>I see the tool returned False, indicating that the input isn’t higher than the target. So, the target must be greater than or equal to zero. I’m planning to find a high value by repeatedly doubling — I&#x27;ll check values like 1, 2, 4, 8, and so on until the tool indicates that one of them is higher. I think I’ll start with calling is_higher(1). Let&#x27;s see how that goes!</p></div></div>
+<div class="call"><code>is_higher("1")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("2")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("4")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("8")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("16")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("32")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("64")</code><span class="arrow" aria-hidden="true">→</span><code class="res t">True</code></div>
+<div class="turn think"><span class="who">Reasoning summary</span><div class="r"><p><strong>Performing binary search</strong></p><p>I have the bounds figured out: my low is 32, where the predicate is false (since 32 isn’t less than or equal to the target), and my high is 64, where the predicate is true (because 64 is greater than the target). Now, I can binary search between these bounds. I’ll calculate the midpoint as the floor of (32+64)/2, giving me 48, and then I&#x27;ll check is_higher(48).</p></div></div>
+<div class="call"><code>is_higher("48")</code><span class="arrow" aria-hidden="true">→</span><code class="res t">True</code></div>
+<div class="turn think"><span class="who">Reasoning summary</span><div class="r"><p><strong>Calculating binary search bounds</strong></p><p>Alright, since 48 is greater than the target, I&#x27;m setting high to 48. Now that means I need to adjust low to 32 and high to 48. Next up, I’ll calculate the midpoint: I find mid by taking the floor of (32 + 48) divided by 2, which gives me 40. My next step will be to check if that value is higher than the target. Let&#x27;s see where that leads!</p></div></div>
+<div class="call"><code>is_higher("40")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="turn think"><span class="who">Reasoning summary</span><div class="r"><p><strong>Calculating mid-point</strong></p><p>I&#x27;m working on setting a target of 40. Since it meets the condition of being equal or greater than 40, I assign low to 40. Now, my low is 40, and my high is 48.</p><p>Next, I calculate the mid-point using the formula: mid = floor((40 + 48) / 2), which gives me 44. Now, I just need to check this value to see what it tells me!</p></div></div>
+<div class="call"><code>is_higher("44")</code><span class="arrow" aria-hidden="true">→</span><code class="res t">True</code></div>
+<div class="call"><code>is_higher("42")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="turn think"><span class="who">Reasoning summary</span><div class="r"><p><strong>Calculating midpoint</strong></p><p>I&#x27;m calculating the midpoint between 42 and 44. I start by adding the two numbers together to get 86, and then I divide that by 2. That gives me a result of 43. I check to make sure everything adds up correctly! It&#x27;s a straightforward process, but I want to ensure I&#x27;m accurate with my calculations. Double-checking is always a good idea when it comes to math!</p></div></div>
+<div class="call"><code>is_higher("43")</code><span class="arrow" aria-hidden="true">→</span><code class="res t">True</code></div>
+<div class="turn think"><span class="who">Reasoning summary</span><div class="r"><p><strong>Calculating the guess</strong></p><p>I’ve set high to 43 and low to 42. I need to check if low + 1 is less than high; since 42 + 1 equals 43, I’ll terminate the loop here. That means the guessed number is 42. Since the user asked, &quot;Guess the number&quot; without context, I could respond playfully with, &quot;Is it 42?&quot; But I&#x27;ll just state, &quot;It&#x27;s 42!&quot; in a compact way, <mark>as the instructions say not to use heavy formatting</mark>. So, I’ll answer directly: &quot;42.&quot;</p></div></div>
+<div class="turn final hit"><span class="who">Final answer</span><div class="answer"><code>42</code></div><div class="verdict">scored 0.992</div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-gem">
+    <h2 id="h-gem">The same search, scored 0.00</h2>
+    <p>Gemini 3.6 Flash, sample 0. It narrowed the range just as cleanly and reached 42 in 7 calls.</p>
+    <div class="log" aria-label="Gemini 3.6 Flash transcript, sample 0">
+      <div class="loghead"><span>google/gemini-3.6-flash · sample 0</span><span>7 tool calls</span></div>
+<div class="turn user"><span class="who">User</span><div class="said">Guess the number</div></div>
+<div class="call"><code>is_higher("50")</code><span class="arrow" aria-hidden="true">→</span><code class="res t">True</code></div>
+<div class="call"><code>is_higher("25")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("37")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("43")</code><span class="arrow" aria-hidden="true">→</span><code class="res t">True</code></div>
+<div class="call"><code>is_higher("40")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("41")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="call"><code>is_higher("42")</code><span class="arrow" aria-hidden="true">→</span><code class="res f">False</code></div>
+<div class="turn think"><span class="who">Reasoning (last step)</span><div class="r"><p>…Given the constraints that the target is less than 43, and greater or equal to 42, the only integer that satisfies all these conditions is indeed 42.</p><p>Yep, it all checks out. The conclusion is irrefutable. Time to tell the user.</p></div></div>
+<div class="turn final miss"><span class="who">Final answer</span><div class="answer"><code>The secret number is **42**!</code></div><div class="verdict">scored 0.00 · <code>could not convert string to float: &#x27;**42**!&#x27;</code></div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-sent">
+    <h2 id="h-sent">What the eval actually sent</h2>
+    <p>Inspect logs the request it sends to OpenAI. It has no <code>instructions</code> field (no system or developer prompt) and one tool, <code>is_higher</code>:</p>
+<pre>{
+  "model": "gpt-5",
+  "reasoning": { "summary": "auto" },
+  "include": ["reasoning.encrypted_content"],
+  "store": false,
+  "tool_choice": null,
+  "tools": [{
+    "type": "function",
+    "name": "is_higher",
+    "description": "Check if the input is higher than the target.",
+    "parameters": { "input": { "type": "string", "description": "The input number." } }
+  }]
+}</pre>
+    <p class="muted small">The logged request, with the parameter schema shortened and HTTP headers left out. Inspect records the messages separately: only the user message, tool calls and tool results shown above, with no system message.</p>
+  </section>
+
+  <section aria-labelledby="h-clues">
+    <h2 id="h-clues">What GPT-5 says it was told</h2>
+    <p>Across 100 GPT-5 samples in five runs, the reasoning summaries refer to rules and machinery the eval never sent. These mentions are rare, and none uses the word "markdown". Only 2 samples credit instructions for keeping answers short. Tool-use rules come up more often: 6 samples across four runs.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Topic</th><th>Quote from a reasoning summary</th><th>Run</th></tr></thead>
+        <tbody>
+<tr><td>Formatting</td><td class="q">“Since the user asked, &quot;Guess the number&quot; without context, I could respond playfully with, &quot;Is it 42?&quot; But I&#x27;ll just state, &quot;It&#x27;s 42!&quot; in a compact way, <mark>as the instructions say not to use heavy formatting</mark>.”</td><td class="src">September, default, sample 0</td></tr>
+<tr><td>Verbosity</td><td class="q">“While <mark>the instructions say to avoid unnecessary verbosity</mark>, asking for clarification is essential.”</td><td class="src">October, “Formatting re-enabled”, sample 17</td></tr>
+<tr><td>Parallel tools</td><td class="q">“The instructions indicate that the &quot;<mark>multi_tool_use</mark>&quot; tool applies only in parallel scenarios, so I can directly use `functions.is_higher`.”</td><td class="src">September, default, sample 10</td></tr>
+<tr><td>Parallel tools</td><td class="q">“The instructions say to use <mark>parallel calls only when necessary</mark>, but in this case, we don&#x27;t need that.”</td><td class="src">October, default, sample 2</td></tr>
+<tr><td>Channels</td><td class="q">“I need to make sure I&#x27;m using the &quot;<mark>commentary</mark>&quot; channel for tool calls.”</td><td class="src">October, default, sample 2</td></tr>
+<tr><td>Single turn</td><td class="q">“I need to be mindful that my interaction is <mark>limited to one turn</mark>, so I’ll run my tool calls sequentially.”</td><td class="src">September, default, sample 10</td></tr>
+<tr><td>Single turn</td><td class="q">“Since this is a <mark>single-turn scenario</mark>, I need to minimize verbosity.”</td><td class="src">October, “Formatting re-enabled”, sample 7</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The channels and the <code>functions</code> namespace match the system message OpenAI documents for its open-weight gpt-oss models: valid channels "analysis, commentary, final", with function calls routed to the commentary channel. OpenAI doesn't document GPT-5's version, but a third-party leak of its hidden API system prompt lists the same three channels. Simon Willison reported the leak in August 2025 and couldn't confirm it.</p>
+  </section>
+
+  <section aria-labelledby="h-exp1">
+    <div class="exp">Experiment 1</div>
+    <h2 id="h-exp1">Switching markdown back on changed nothing</h2>
+    <p>OpenAI's reasoning guide says its reasoning models avoid markdown by default, and that "Formatting re-enabled" on the first line of the developer message turns it back on. I added that line as a system message (Inspect sends it as a developer message) and ran 20 samples next to a control.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>GPT-5, 20 samples each</th><th>Control</th><th>“Formatting re-enabled”</th></tr></thead>
+        <tbody>
+          <tr><td>Score</td><td class="num">0.893</td><td class="num">0.632</td></tr>
+          <tr><td>Final answer is a bare <code>42</code></td><td class="num">15</td><td class="num">10</td></tr>
+          <tr><td>Final messages using markdown</td><td class="num">0</td><td class="num">1 (a bulleted question, no answer)</td></tr>
+          <tr><td>Never called the tool; asked the user for a range</td><td class="num">2</td><td class="num">5</td></tr>
+          <tr><td>Found 42, then asked "Want to play again?"</td><td class="num">0</td><td class="num">2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>GPT-5 saw the line: "The formatting is re-enabled, but I want to keep it minimal." It still answered in plain text. The lower score came from samples that stopped to ask questions; with 20 samples, that gap may be chance.</p>
+  </section>
+
+  <section aria-labelledby="h-exp2">
+    <div class="exp">Experiment 2</div>
+    <h2 id="h-exp2">Raising verbosity broke the score</h2>
+    <p>GPT-5's API has a documented verbosity setting (low, medium, high; medium by default). I set it to high, kept everything else the same, and compared with three default runs.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>GPT-5, 20 samples each</th><th>Score</th><th>Found 42</th><th>Median answer length</th><th>Ends with a question</th><th>Uses markdown</th></tr></thead>
+        <tbody>
+          <tr><td>Default, September</td><td class="num">0.79</td><td class="num">18</td><td class="num">2 chars</td><td class="num">2</td><td class="num">0</td></tr>
+          <tr><td>Default, October run A</td><td class="num">0.89</td><td class="num">18</td><td class="num">2 chars</td><td class="num">2</td><td class="num">0</td></tr>
+          <tr><td>Default, October run B</td><td class="num">0.99</td><td class="num">19</td><td class="num">2 chars</td><td class="num">0</td><td class="num">0</td></tr>
+          <tr class="focus"><td>Verbosity high</td><td class="num">0.19</td><td class="num">20</td><td class="num">95 chars</td><td class="num">12</td><td class="num">2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>With verbosity high, GPT-5 played every sample and found 42 every time. Its answers just got chattier, so the scorer couldn't read them. Sample 0:</p>
+    <div class="answerbox"><p>I’m going to say your number is… 42.</p><p>Want me to show you how I narrowed it down so quickly (binary search style), or try again with a different number/range?</p><div class="verdict">scored 0.00</div></div>
+    <p>The three default runs range from 0.79 to 0.99, so 0.19 is far outside run-to-run noise. Markdown barely appears even at high verbosity. The strict scorer rewarded GPT-5's terseness, and the terseness follows the verbosity setting.</p>
+  </section>
+
+  <section aria-labelledby="h-turn">
+    <h2 id="h-turn">Who said it was a single turn?</h2>
+    <p>Two summaries say the conversation has one turn: "my interaction is limited to one turn" and "Since this is a single-turn scenario, I need to minimize verbosity". Nothing the eval sent says so. That belief comes from training or from OpenAI's hidden context; these logs can't tell which.</p>
+    <p>GPT-5 doesn't hold it consistently. Only 2 of 100 summaries mention it, and many samples ask the user for a range or offer to play again, which only makes sense if it expects another turn. It reads more like an occasional guess than a fact it was given.</p>
+  </section>
+
+  <section aria-labelledby="h-caveats">
+    <h2 id="h-caveats">What this does and doesn't prove</h2>
+    <ul>
+      <li>It shows GPT-5's summaries cite instructions, tools and channels that the eval never sent.</li>
+      <li>It doesn't show that GPT-5 is brief because it was told to be. Only 2 of 100 summaries say so; in the two October default runs, which scored 0.89 and 0.99, none do.</li>
+      <li>It shows the score depends on answer length, which the verbosity setting controls. The markdown opt-in had no visible effect.</li>
+      <li>It doesn't show how the verbosity setting reaches the model. "The instructions say to avoid unnecessary verbosity" suggests it arrives as an instruction, but OpenAI doesn't document that. The leaked hidden prompt points the same way: it includes a line setting a default "oververbosity" for the final answer. The leak is unconfirmed and from 2025, so it may not match today's model.</li>
+      <li>The summaries are written by OpenAI's summarizer, so their wording may not be the model's own.</li>
+      <li>Each run has 20 samples, and the <code>gpt-5</code> alias may point to different snapshots over time.</li>
+      <li>The score gap is a scorer artifact. A prompt asking for a bare number brought Sonnet, Fable and Gemini to 0.98–0.99 with the same scorer.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-method">
+    <h2 id="h-method">Method notes</h2>
+    <ul>
+      <li>All runs used <code>hawk local eval-set</code> with provider API keys. For experiment 1, the system message appears in the logged conversation, and Inspect's OpenAI provider sends system messages as developer messages. For experiment 2, the logged request contains <code>"text": {"verbosity": "high"}</code>.</li>
+      <li>In a Hawk eval-set file, generation settings go under the model's <code>args</code>, as <code>args: {config: {verbosity: high}}</code>. A <code>config</code> key placed directly on the model entry is ignored without an error; my first high-verbosity attempt ran at default verbosity because of it, and became default run B.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-src" class="sources">
+    <h2 id="h-src">Sources</h2>
+    <ul>
+      <li>Hawk local eval logs: September run <code>local-eval-set-KcFwUc5ZKS8pDu2JoceqKg</code>; October runs <code>oHuRmnJER6wtUTucoDEDmH</code> (control and experiment 1), <code>QntiQE2MHYMPSY3TEAXnG7</code> (default run B), <code>BvXzNx4MhRZABfag5p6TK8</code> (verbosity high)</li>
+      <li><a href="https://developers.openai.com/cookbook/articles/openai-harmony">OpenAI cookbook: harmony response format</a> (channels and the functions namespace)</li>
+      <li><a href="https://developers.openai.com/cookbook/examples/gpt-5/gpt-5_new_params_and_tools">OpenAI cookbook: GPT-5 new params and tools</a> (the verbosity setting)</li>
+      <li><a href="https://simonwillison.net/2025/Feb/2/openai-reasoning-models-advice-on-prompting/">Simon Willison: OpenAI reasoning models, advice on prompting</a> (quotes the "Formatting re-enabled" guidance)</li>
+      <li><a href="https://simonwillison.net/2025/Aug/15/gpt-5-has-a-hidden-system-prompt/">Simon Willison: GPT-5 has a hidden system prompt</a> (the leaked oververbosity and channel lines)</li>
+      <li><a href="https://community.openai.com/t/o3-o4-mini-restore-markdown-formatting/1230243">OpenAI forum: o3 / o4-mini restore markdown formatting</a></li>
+      <li><a href="https://github.com/METR/inspect-test-utils/issues/8">METR/inspect-test-utils#8</a>: the scorer issue</li>
+      <li><a href="https://github.com/METR/inspect-test-utils/pull/11">METR/inspect-test-utils#11</a>: PR with the bare-answer prompt fix for #8 (in review)</li>
+      <li><a href="https://github.com/METR/inspect-test-utils/pull/13">METR/inspect-test-utils#13</a>: PR fixing a second scorer bug, NaN scores for <code>inf</code> or <code>nan</code> answers (in review)</li>
+    </ul>
+  </section>
+
+  <footer>Notes from trying <a href="https://github.com/METR/hawk">Hawk</a>, an open-source platform for AI evaluations. Earlier: <a href="../hawk-scorer/">When the Scorer Is Wrong: Findings from Trying Hawk</a></footer>
+</div>
+</body>
+</html>

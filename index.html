@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leticia Lima · AI evaluation notes</title>
+<meta name="description" content="Write-ups from running METR's Hawk evaluation platform: what the scores said, what the transcripts showed, and what I reported upstream.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">AI evaluation notes</div>
+    <h1>Leticia Lima</h1>
+    <p class="lede">Platform and reliability engineer. These are write-ups from running METR's Hawk evaluation platform locally: what the scores said, what the transcripts showed, and what I reported upstream.</p>
+  </header>
+
+  <section aria-labelledby="h-posts">
+    <h2 id="h-posts">Write-ups</h2>
+    <ul class="posts">
+      <li class="post">
+        <a href="gpt5-brevity/"><h3>Who Told GPT-5 to Be Brief?</h3></a>
+        <div class="meta">Oct 24, 2026 · Hawk · guess_number</div>
+        <p>Four models found the answer, but only GPT-5 scored well, and its reasoning credited instructions the eval never sent. Two experiments show the lever is answer length, set by its verbosity setting, not markdown.</p>
+      </li>
+      <li class="post">
+        <a href="hawk-scorer/"><h3>When the Scorer Is Wrong: Findings from Trying Hawk</h3></a>
+        <div class="meta">Oct 20, 2026 · Hawk · guess_number</div>
+        <p>Correct answers scored 0 because they ended in markdown. A prompt fix and a parser fix compared, the tolerant parser that scored questions as answers, and what I filed upstream.</p>
+      </li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-upstream" class="sources">
+    <h2 id="h-upstream">Upstream</h2>
+    <ul>
+      <li><a href="https://github.com/METR/inspect-test-utils/issues/8">METR/inspect-test-utils#8</a>: the stock scorer scores correct answers 0 over formatting</li>
+      <li><a href="https://github.com/METR/inspect-test-utils/pull/11">PR #11</a>: the prompt fix for #8</li>
+      <li><a href="https://github.com/METR/inspect-test-utils/issues/12">#12</a>: NaN scores for <code>inf</code> and <code>nan</code> answers</li>
+      <li><a href="https://github.com/METR/inspect-test-utils/pull/13">PR #13</a>: the fix for #12, plus an overflow case</li>
+    </ul>
+  </section>
+
+  <footer><a href="https://github.com/limasifam">GitHub</a> · <a href="https://linkedin.com/in/limasileticia">LinkedIn</a></footer>
+</div>
+</body>
+</html>

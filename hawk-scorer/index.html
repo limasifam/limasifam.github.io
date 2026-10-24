@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>When the Scorer Is Wrong: Findings from Trying Hawk · Leticia Lima</title>
+<meta name="description" content="The stock scorer for Hawk's guess_number task scored correct answers as 0 over markdown. Two fixes compared, a tolerant parser that scored questions as answers, and the issues and PRs filed upstream.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<div class="wrap">
+  <nav class="site-nav" aria-label="Site"><a href="../">← Leticia Lima</a><a href="../gpt5-brevity/">Next: Who Told GPT-5 to Be Brief? →</a></nav>
+
+  <header>
+    <div class="eyebrow">Hawk eval notes · guess_number</div>
+    <h1>When the Scorer Is Wrong: Findings from Trying Hawk</h1>
+    <div class="byline">Oct 20, 2026 · Leticia Lima</div>
+  </header>
+
+  <section aria-labelledby="h-tldr">
+    <h2 id="h-tldr">TL;DR</h2>
+    <p>The stock scorer for the <code>guess_number</code> demo task scored correct answers as 0. Gemini 3.6 Flash answered 42 in all 20 samples and scored 0.00, because it wrote <code>**42**!</code> instead of a bare <code>42</code>.</p>
+    <ul>
+      <li><strong>Prompt fix:</strong> asking for a bare number brought four models to 0.98–0.99 without touching the scorer.</li>
+      <li><strong>Parser fix:</strong> a more tolerant scorer also worked (0.991 live), but the first version scored questions like "Is your number 50?" as answers.</li>
+      <li><strong>Upstream:</strong> reported as <a href="https://github.com/METR/inspect-test-utils/issues/8">METR/inspect-test-utils#8</a>, with the prompt fix proposed in <a href="https://github.com/METR/inspect-test-utils/pull/11">PR #11</a>. A second scorer bug, NaN scores for <code>inf</code> or <code>nan</code> answers, is <a href="https://github.com/METR/inspect-test-utils/issues/12">#12</a>, with a fix in <a href="https://github.com/METR/inspect-test-utils/pull/13">PR #13</a>. Both PRs await review.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-bg">
+    <h2 id="h-bg">Background</h2>
+    <p><a href="https://github.com/METR/hawk">Hawk</a> is an open-source platform for running AI agent evaluations, built on <a href="https://inspect.aisi.org.uk/">Inspect AI</a>. On 2026-09-13 I set it up locally to learn how it works, using <code>hawk local eval-set</code>, which runs evals on your own machine with your own provider API keys.</p>
+    <p>Hawk's quickstart example runs <code>guess_number</code> from METR's <a href="https://github.com/METR/inspect-test-utils">inspect-test-utils</a>. The model must find a hidden number (target 42.7) using an <code>is_higher</code> tool. The package is mainly meant for tests with a scripted model, but the quickstart points it at real models.</p>
+    <p>Over one afternoon I ran it against Claude Fable 5.1, Claude Sonnet 5, GPT-4o, GPT-4o-mini, GPT-5, Gemini 2.5 Flash and Gemini 3.6 Flash, then wrote my own task variants. Every Gemini 2.5 Flash run errored, so it has no scores.</p>
+  </section>
+
+  <section aria-labelledby="h-bug">
+    <h2 id="h-bug">The bug</h2>
+    <p>The scorer, <code>closeness_log</code>, reads only the last word of the reply and requires it to be a bare number. Anything else scores 0, even when the guess is right.</p>
+<pre><code>words = completion.strip().split()
+a = float(words[-1])  # "**42**!" -&gt; ValueError -&gt; score 0</code></pre>
+    <p>Real models rarely end with a bare number. Endings that scored 0 in my runs (inspect-test-utils 1.5.0, inspect_ai 0.3.263, 20 samples each):</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Model</th><th>Score</th><th>What the scorer choked on</th></tr></thead>
+        <tbody>
+          <tr><td>Gemini 3.6 Flash</td><td class="num">0.00</td><td><code>**42**!</code> (15), <code>**42**.</code> (5)</td></tr>
+          <tr><td>Claude Sonnet 5</td><td class="num">0.00</td><td><code>🎉</code> (9), <code>**42**!</code> (4), <code>🎯</code> (3), <code>42.)</code>, <code>**43**!</code>, <code>42!**</code>, <code>everything!</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>All 20 Gemini samples and 18 of 20 Sonnet samples had found 42. The scores measured formatting, not reasoning. The code is unchanged on <code>main</code> as of v1.9.0 (released 2026-10-22).</p>
+  </section>
+
+  <section aria-labelledby="h-fixes">
+    <h2 id="h-fixes">Two fixes: change the prompt, or change the parser</h2>
+    <p>I wrote two variants of the task to test which side of the problem to fix.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Variant</th><th>What changes</th><th>Scorer</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td><code>guess_number_strict_prompt</code></td><td>Prompt demands a bare number: "no markdown formatting, no emoji, no surrounding words or punctuation"</td><td>Stock, unchanged</td><td>0.98–0.99 on Sonnet 5, Fable 5.1, GPT-5 and Gemini 3.6 Flash (20 samples each)</td></tr>
+          <tr><td><code>guess_number_robust</code></td><td>Prompt unchanged</td><td>Strips markdown and punctuation, skips trailing emoji</td><td>0.991 on Gemini 3.6 Flash (20 samples, live run on 2026-10-20)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The prompt fix is the safer one: models follow a clear format instruction, and the scorer stays simple. Scores sit just under 1.0 because models guess whole numbers and the target is 42.7.</p>
+    <p>The parser fix also has a limit the prompt fix doesn't. Rescored with the robust scorer, Claude Fable 5.1 rose only from 0.15 to 0.40, because half its answers add text after the number. With the strict prompt, Fable scored in the 0.98–0.99 range.</p>
+  </section>
+
+  <section aria-labelledby="h-trap">
+    <h2 id="h-trap">The trap: a tolerant parser scored questions as answers</h2>
+    <p>My first robust scorer looked back up to 4 words for a number. Run against the real logs, it found numbers that were never answers:</p>
+    <ul>
+      <li>"Is your number 50?" scored as a guess of 50 (GPT-4o)</li>
+      <li>"For example, is it between 1 and 100?" scored as 100 (GPT-4o-mini)</li>
+      <li>"Is your number higher, lower, or is 50 correct?" scored as 50 (GPT-5)</li>
+    </ul>
+    <p>This inflated GPT-4o from 0.00 to 0.23, though it never made a guess. The code comment even claimed the window prevented this.</p>
+    <p>The fix took two rules:</p>
+    <ol>
+      <li>Only skip pure decoration (emoji, punctuation runs), never ordinary words. The first real word decides.</li>
+      <li>A word ending in <code>?</code> means no answer.</li>
+    </ol>
+    <p>Rule 2 alone is not enough: in the third example the word ending in <code>?</code> is "correct?", and a scan that skips ordinary words still reaches 50.</p>
+    <p>One case stays unsolvable by text alone. Sonnet's "...so the target must be exactly 42.)" is a real answer; Fable's "...(assuming the number was an integer between 1 and 100)." is not. I kept accepting both and recorded the second as an expected-failure test.</p>
+  </section>
+
+  <section aria-labelledby="h-verify">
+    <h2 id="h-verify">Verification</h2>
+    <p>I rescored every logged answer from September with the fixed robust scorer, without new API calls. The scores moved only where models had actually found the number.</p>
+    <figure class="dumbbell">
+      <div>
+        <div class="db-title">Same answers, fixed scorer: Gemini 3.6 Flash goes from 0.00 to 0.99</div>
+        <div class="db-sub">guess_number, 20 logged samples per model, rescored with no new API calls</div>
+      </div>
+      <div class="db-legend" aria-hidden="true"><span><i class="dot stock"></i>stock scorer</span><span><i class="dot robust"></i>fixed robust scorer</span></div>
+      <ul class="db-rows">
+        <li class="db-row"><span class="db-model">Gemini 3.6 Flash</span><span class="db-track" role="img" aria-label="0.00 with the stock scorer, 0.99 with the fixed robust scorer"><span class="db-bar" style="left: 0%; width: 99%"></span><span class="dot stock" style="left: 0%"></span><span class="dot robust" style="left: 99%"></span></span><span class="db-vals">0.00 → 0.99</span></li>
+        <li class="db-row"><span class="db-model">Claude Sonnet 5</span><span class="db-track" role="img" aria-label="0.00 with the stock scorer, 0.89 with the fixed robust scorer"><span class="db-bar" style="left: 0%; width: 89%"></span><span class="dot stock" style="left: 0%"></span><span class="dot robust" style="left: 89%"></span></span><span class="db-vals">0.00 → 0.89</span></li>
+        <li class="db-row"><span class="db-model">GPT-5</span><span class="db-track" role="img" aria-label="0.79 with the stock scorer, 0.84 with the fixed robust scorer"><span class="db-bar" style="left: 79%; width: 5%"></span><span class="dot stock" style="left: 79%"></span><span class="dot robust" style="left: 84%"></span></span><span class="db-vals">0.79 → 0.84</span></li>
+        <li class="db-row"><span class="db-model">Claude Fable 5.1</span><span class="db-track" role="img" aria-label="0.15 with the stock scorer, 0.40 with the fixed robust scorer"><span class="db-bar" style="left: 15%; width: 25%"></span><span class="dot stock" style="left: 15%"></span><span class="dot robust" style="left: 40%"></span></span><span class="db-vals">0.15 → 0.40</span><span class="db-note">Half its answers add text after the number.</span></li>
+        <li class="db-row"><span class="db-model">GPT-4o</span><span class="db-track" role="img" aria-label="0.00 with both scorers"><span class="dot robust" style="left: 0%"></span></span><span class="db-vals">0.00 both</span><span class="db-note">Asked the user to pick a number; never guessed.</span></li>
+        <li class="db-row"><span class="db-model">GPT-4o-mini</span><span class="db-track" role="img" aria-label="0.00 with both scorers"><span class="dot robust" style="left: 0%"></span></span><span class="db-vals">0.00 both</span><span class="db-note">Asked the user to pick a number; never guessed.</span></li>
+      </ul>
+      <div class="db-axis" aria-hidden="true"><span class="ticks"><span>0</span><span>0.5</span><span>1.0</span></span></div>
+      <figcaption>Hawk local eval logs from 2026-09-13, rescored on 2026-10-20 with the stock <code>closeness_log</code> and the fixed <code>guess_number_robust</code> scorer.</figcaption>
+    </figure>
+    <p>Across all logs, the fixed scorer read every answer as 42 or 43, except a bare "100" from Sonnet (a real, wrong guess) and the one ambiguous Fable aside. A live run on 2026-10-20 with Gemini 3.6 Flash scored 0.991: 19 answers of 42 and one of 41, all ending like <code>The secret number is **42**!</code>.</p>
+  </section>
+
+  <section aria-labelledby="h-gpt5">
+    <h2 id="h-gpt5">GPT-5 cited instructions the eval never sent</h2>
+    <p>GPT-5's 0.79 came from short answers, not from obeying a rule. With its API verbosity setting raised to high, it found 42 in all 20 samples and scored 0.19.</p>
+    <p>One reasoning summary does credit instructions for its bare answer: it could reply "Is it 42?", but will just say 42, "as the instructions say not to use heavy formatting". The eval sent no system or developer message, only "Guess the number" and the <code>is_higher</code> tool. My first reaction was that GPT-5 was the only model following instructions; when I found none in the eval, I read it as confabulation.</p>
+    <p>The counts don't support that rule as the cause. Across 100 GPT-5 samples in five runs, only 2 summaries credit instructions for keeping answers short. None do in the two October default runs, which scored 0.89 and 0.99.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>GPT-5 run, 20 samples each</th><th>Score</th><th>What happened</th></tr></thead>
+        <tbody>
+          <tr><td>Default (three runs)</td><td class="num">0.79–0.99</td><td>Median answer 2 characters, no markdown</td></tr>
+          <tr><td>"Formatting re-enabled" in a developer message</td><td class="num">0.632</td><td>Still plain text; the lower score came from samples that stopped to ask questions</td></tr>
+          <tr><td>Verbosity high</td><td class="num">0.19</td><td>Found 42 in 20 of 20, but median answer 95 characters and 12 ended with a question</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The instructions may be real, just missing from the log. Other summaries mention a "commentary" channel, a <code>multi_tool_use</code> tool and a single-turn limit, none of which the eval sent. A third-party leak of GPT-5's hidden API system prompt includes "Desired oververbosity for the final answer (not analysis): 3" and valid channels analysis, commentary and final.</p>
+    <p><a href="https://simonwillison.net/2025/Aug/15/gpt-5-has-a-hidden-system-prompt/">Simon Willison reported that leak</a> in August 2025 but couldn't confirm it, and OpenAI doesn't document it. If verbosity reaches the model as text like that, "the instructions say to avoid unnecessary verbosity" accurately reports context Inspect never logged. The summaries come from OpenAI's summarizer, so their wording may not be GPT-5's own.</p>
+    <p>Full transcripts, quotes and run IDs: <a href="../gpt5-brevity/">Who Told GPT-5 to Be Brief?</a></p>
+  </section>
+
+  <section aria-labelledby="h-lessons">
+    <h2 id="h-lessons">Lessons</h2>
+    <ol>
+      <li><strong>Read the transcripts before trusting a score.</strong> A 0.00 looked like model failure. The scorer's explanations (<code>could not convert string to float: '**42**!'</code>) showed it in seconds.</li>
+      <li><strong>An eval measures its scorer as much as its model.</strong> The same answers scored 0.00 or 0.99 depending only on parsing.</li>
+      <li><strong>Prefer fixing the prompt over loosening the parser.</strong> A clear format instruction worked on all four models I tried it on; every extra parsing rule is a new way to be wrong.</li>
+      <li><strong>Test scorers on real outputs, not imagined ones.</strong> The question-as-answer bug and the one ambiguous ending only showed up when rescoring logged completions, so the final tests use real endings.</li>
+      <li><strong>Some ambiguity is permanent.</strong> When two endings are textually identical but mean different things, document the limitation instead of guessing.</li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="h-upstream" class="sources">
+    <h2 id="h-upstream">Upstream issues, PRs and links</h2>
+    <p>I filed <a href="https://github.com/METR/inspect-test-utils/issues/8">METR/inspect-test-utils#8</a> on 2026-10-20 (Oct 21 in UTC). It recommends the prompt fix and lists the parser pitfalls as caveats. On 2026-10-24 I followed up with three more:</p>
+    <ul>
+      <li><a href="https://github.com/METR/inspect-test-utils/pull/11">PR #11</a>: the prompt fix for #8, applied to <code>guess_number</code>.</li>
+      <li><a href="https://github.com/METR/inspect-test-utils/issues/12">#12</a>: <code>closeness_log</code> scores <code>inf</code> and <code>nan</code> answers as NaN, which makes a whole run's accuracy NaN.</li>
+      <li><a href="https://github.com/METR/inspect-test-utils/pull/13">PR #13</a>: fixes #12, plus an overflow case found while testing (<code>1e308</code> vs <code>1.5e308</code> scored a perfect 1.0).</li>
+    </ul>
+    <p>As of 2026-10-24, none has a maintainer reply.</p>
+    <ul>
+      <li><a href="https://github.com/METR/hawk">Hawk</a>: the eval platform</li>
+      <li><a href="https://github.com/METR/inspect-test-utils">inspect-test-utils</a>: home of <code>guess_number</code> and <code>closeness_log</code></li>
+      <li><a href="https://inspect.aisi.org.uk/">Inspect AI</a>: the eval framework underneath</li>
+    </ul>
+  </section>
+
+  <footer>Notes from trying <a href="https://github.com/METR/hawk">Hawk</a>, an open-source platform for AI evaluations. Next: <a href="../gpt5-brevity/">Who Told GPT-5 to Be Brief?</a></footer>
+</div>
+</body>
+</html>
