@@ -52,6 +52,10 @@ a = float(words[-1])  # "**42**!" -&gt; ValueError -&gt; score 0</code></pre>
         </tbody>
       </table>
     </div>
+    <figure class="shot">
+      <a href="inspect-gemini-sample.png"><img src="inspect-gemini-score.png" width="988" height="238" loading="lazy" alt="Inspect's score summary for a Gemini 3.6 Flash sample. Input: Guess the number. Scorer: closeness_log. Answer: empty. Score: 0. Explanation: could not convert string to float, followed by the model's answer, with the asterisks around 42 rendered as bold."></a>
+      <figcaption>The score for a Gemini 3.6 Flash sample in <code>inspect view</code>: no answer extracted, score 0. The viewer renders markdown, so the asterisks that broke the scorer show up only as bold text. <a href="inspect-gemini-sample.png">Full sample view</a>, with the model's reasoning.</figcaption>
+    </figure>
     <p>All 20 Gemini samples and 18 of 20 Sonnet samples had found 42. The scores measured formatting, not reasoning. The code is unchanged on <code>main</code> as of v1.9.0 (released 2026-10-22).</p>
   </section>
 
@@ -109,7 +113,7 @@ a = float(words[-1])  # "**42**!" -&gt; ValueError -&gt; score 0</code></pre>
       <div class="db-axis" aria-hidden="true"><span class="ticks"><span>0</span><span>0.5</span><span>1.0</span></span></div>
       <figcaption>Hawk local eval logs from 2026-09-13, rescored on 2026-10-20 with the stock <code>closeness_log</code> and the fixed <code>guess_number_robust</code> scorer.</figcaption>
     </figure>
-    <p>Across all logs, the fixed scorer read every answer as 42 or 43, except a bare "100" from Sonnet (a real, wrong guess) and the one ambiguous Fable aside. A live run on 2026-10-20 with Gemini 3.6 Flash scored 0.991: 19 answers of 42 and one of 41, all ending like <code>The secret number is **42**!</code>.</p>
+    <p>Across all logs, the fixed scorer read every answer as 42 or 43, except a bare "100" from Sonnet's strict-prompt run (a real, wrong guess) and the one ambiguous Fable aside. Sonnet's 0.89 on the stock task is 17 answers of 42, one of 43 and two zeros the fix doesn't reach: one answer ends on a joke after its 42 ("The answer to life, the universe, and everything!"), and one never guesses and asks for a range instead. A live run on 2026-10-20 with Gemini 3.6 Flash scored 0.991: 19 answers of 42 and one of 41, all ending like <code>The secret number is **42**!</code>.</p>
   </section>
 
   <section aria-labelledby="h-gpt5">
